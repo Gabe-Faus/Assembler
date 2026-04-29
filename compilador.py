@@ -57,21 +57,36 @@ def converter_instrucao(instrucao, linha):
 
     match instrucao:
         case "addi" | "andi" | "ori" | "xori":
-            rsi = registradores[partes_limpas[2]]
+            rs1 = registradores[partes_limpas[2]]
             rd = registradores[partes_limpas[1]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
             imm = int_bin(int(partes_limpas[3]))
-            return f"{imm} {rsi} {funct3} {rd} {opcode}"
+            return f"{imm} {rs1} {funct3} {rd} {opcode}"
 
         case "add" | "sub" | "and" | "or" | "xor" | "slt" | "sll" | "srl":
-            rsi = registradores[partes_limpas[2]]
-            rti = registradores[partes_limpas[3]]
+            rs1 = registradores[partes_limpas[2]]
+            rs2 = registradores[partes_limpas[3]]
             rd = registradores[partes_limpas[1]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
             funct7 = informacoes["funct7"]
-            return f"{funct7} {rti} {rsi} {funct3} {rd} {opcode}"
+            return f"{funct7} {rs2} {rs1} {funct3} {rd} {opcode}"
+        
+        case "beq" | "bne":
+            rs1 = registradores[partes_limpas[1]]
+            rs2 = registradores[partes_limpas[2]]
+            opcode = informacoes["opcode"]  
+            funct3 = informacoes["funct3"]
+
+            imm = int_bin(int(partes_limpas[3])) 
+
+            imm_12 = imm[0]          # bit 12
+            imm_10_5 = imm[1:7]      # bits de 10 a 5
+            imm_4_1 = imm[7:11]      # bits de 4 a 1
+            imm_11 = imm[11]         # bit 11
+
+            return f"{imm_12}{imm_10_5} {rs2} {rs1} {funct3} {imm_4_1}{imm_11} {opcode}"
 
         case __:
             return f"Instrução {instrucao} não implementada."
