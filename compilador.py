@@ -1,5 +1,4 @@
 from pathlib import *
-from unittest import case
 
 # Gabriel Pessoa Faustino - 231006121
 arquivo = Path.cwd() / "teste.asm"
