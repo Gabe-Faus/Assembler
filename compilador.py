@@ -98,3 +98,6 @@ with open(arquivo, 'r') as file:
             ordem[instrucao_linha].append((nova_linha, instrucoes[instrucao_linha]["tipo"]))
             print(f"|{'imm':^12}|{'rs1':^5}|{'f3':^3}|{'rd':^5}|{'op':^7}|")
             print(converter_instrucao(instrucao_linha, nova_linha))
+
+            with open(f"{arquivo.stem}.mif", 'a') as output_file:
+                output_file.write(converter_instrucao(instrucao_linha, nova_linha) + "\n")
