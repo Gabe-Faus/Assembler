@@ -2,21 +2,29 @@ from pathlib import *
 from unittest import case
 
 # Gabriel Pessoa Faustino - 231006121
-instrucoes = [
-    "lw","add", "sub", "and", "or", "xor",
-    "addi","sw","jal","jalr","beq", "bne",
-    "slt","slti","lui","auipc","sll", "srl",
-    "andi", "ori", "xori","lhu"
-]
-
-# Gabriel Pessoa Faustino - 231006121
-tipos = {
-    "add": "R", "sub": "R", "and": "R", "or": "R", "xor": "R", "slt": "R", "sll": "R", "srl": "R",
-    "lw": "I", "addi": "I", "jalr": "I", "slti": "I", "andi": "I", "ori": "I", "xori": "I", "lhu": "I",
-    "sw": "S",
-    "beq": "B", "bne": "B",
-    "lui": "U", "auipc": "U",
-    "jal": "J"
+instrucoes = {
+    "add":  {"tipo": "R", "opcode": "0110011", "funct3": "000", "funct7": "0000000"},
+    "sub":  {"tipo": "R", "opcode": "0110011", "funct3": "000", "funct7": "0100000"},
+    "and":  {"tipo": "R", "opcode": "0110011", "funct3": "111", "funct7": "0000000"},
+    "or":   {"tipo": "R", "opcode": "0110011", "funct3": "110", "funct7": "0000000"},
+    "xor":  {"tipo": "R", "opcode": "0110011", "funct3": "100", "funct7": "0000000"},
+    "slt":  {"tipo": "R", "opcode": "0110011", "funct3": "010", "funct7": "0000000"},
+    "sll":  {"tipo": "R", "opcode": "0110011", "funct3": "001", "funct7": "0000000"},
+    "srl":  {"tipo": "R", "opcode": "0110011", "funct3": "101", "funct7": "0000000"},
+    "addi": {"tipo": "I", "opcode": "0010011", "funct3": "000"},
+    "andi": {"tipo": "I", "opcode": "0010011", "funct3": "111"},
+    "ori":  {"tipo": "I", "opcode": "0010011", "funct3": "110"},
+    "xori": {"tipo": "I", "opcode": "0010011", "funct3": "100"},
+    "slti": {"tipo": "I", "opcode": "0010011", "funct3": "010"},
+    "lw":   {"tipo": "I", "opcode": "0000011", "funct3": "010"},
+    "lhu":  {"tipo": "I", "opcode": "0000011", "funct3": "101"},
+    "jalr": {"tipo": "I", "opcode": "1100111", "funct3": "000"},
+    "sw":   {"tipo": "S", "opcode": "0100011", "funct3": "010"},
+    "beq":  {"tipo": "B", "opcode": "1100011", "funct3": "000"},
+    "bne":  {"tipo": "B", "opcode": "1100011", "funct3": "001"},
+    "lui":  {"tipo": "U", "opcode": "0110111"},
+    "auipc":{"tipo": "U", "opcode": "0010111"},
+    "jal":  {"tipo": "J", "opcode": "1101111"}
 }
 
 # Gabriel Pessoa Faustino - 231006121
@@ -42,58 +50,28 @@ def int_bin(numero):
     return bin(numero)[2:].zfill(12)
 
 # Gabriel Pessoa Faustino - 231006121
-def conv_opcode(tipo):
-    match tipo:
-        case "R":
-            return "0110011"
-        case "I":
-            return "0010011"
-        case "S":
-            return "0100011"
-        case "B":
-            return "1100011"
-        case "U":
-            return "1110111"
-        case "J":
-            return "1101111"
-        case __:
-            raise ValueError(f"Tipo {tipo} não reconhecido.")
-
-# Gabriel Pessoa Faustino - 231006121        
-def converter_instrucao(instrucao, linha, tipo):
+def converter_instrucao(instrucao, linha):
     partes_limpas = linha.replace(",", " ").split()
+    informacoes = instrucoes[instrucao]
+    tipo = informacoes["tipo"]
+
     match instrucao:
-        case "addi":
-            rsi = registradores[partes_limpas[1]] # codigo do registrador fonte
-            rd = registradores[partes_limpas[2]] # codigo do registrador de destino
-            opcode = conv_opcode(tipo) # opcode para tipo I
-            funct3 = "000" # função específica para addi
-            imm = int_bin(int(partes_limpas[3])) # inteiro imediato com 12 bits
+        case "addi" | "andi" | "ori" | "xori":
+            rsi = registradores[partes_limpas[2]]
+            rd = registradores[partes_limpas[1]]
+            opcode = informacoes["opcode"]
+            funct3 = informacoes["funct3"]
+            imm = int_bin(int(partes_limpas[3]))
             return f"{imm} {rsi} {funct3} {rd} {opcode}"
-        
-        case "andi":
-            rsi = registradores[partes_limpas[1]] # codigo do registrador fonte
-            rd = registradores[partes_limpas[2]] # codigo do registrador de destino
-            opcode = conv_opcode(tipo) # opcode para tipo I
-            funct3 = "111" # função específica para andi
-            imm = int_bin(int(partes_limpas[3])) # inteiro imediato com 12 bits
-            return f"{imm} {rsi} {funct3} {rd} {opcode}"
-        
-        case "ori":
-            rsi = registradores[partes_limpas[1]] # codigo do registrador fonte
-            rd = registradores[partes_limpas[2]] # codigo do registrador de destino
-            opcode = conv_opcode(tipo) # opcode para tipo I
-            funct3 = "110" # função específica para ori
-            imm = int_bin(int(partes_limpas[3])) # inteiro imediato com 12 bits
-            return f"{imm} {rsi} {funct3} {rd} {opcode}"
-        
-        case "xori":
-            rsi = registradores[partes_limpas[1]] # codigo do registrador fonte
-            rd = registradores[partes_limpas[2]] # codigo do registrador de destino
-            opcode = conv_opcode(tipo) # opcode para tipo I
-            funct3 = "101" # função específica para xori
-            imm = int_bin(int(partes_limpas[3])) # inteiro imediato com 12 bits
-            return f"{imm} {rsi} {funct3} {rd} {opcode}"
+
+        case "add" | "sub" | "and" | "or" | "xor" | "slt" | "sll" | "srl":
+            rsi = registradores[partes_limpas[2]]
+            rti = registradores[partes_limpas[3]]
+            rd = registradores[partes_limpas[1]]
+            opcode = informacoes["opcode"]
+            funct3 = informacoes["funct3"]
+            funct7 = informacoes["funct7"]
+            return f"{funct7} {rti} {rsi} {funct3} {rd} {opcode}"
 
         case __:
             return f"Instrução {instrucao} não implementada."
@@ -113,16 +91,10 @@ with open(arquivo, 'r') as file:
         
         instrucao_linha = nova_linha.replace(",", " ").split()[0]
         
-        if instrucao_linha in tipos:
-            tipo = tipos[instrucao_linha]
-            
+        if instrucao_linha in instrucoes:
             if instrucao_linha not in ordem:
                 ordem[instrucao_linha] = []
             
-            ordem[instrucao_linha].append((nova_linha, tipo))
+            ordem[instrucao_linha].append((nova_linha, instrucoes[instrucao_linha]["tipo"]))
             print(f"|{'imm':^12}|{'rs1':^5}|{'f3':^3}|{'rd':^5}|{'op':^7}|")
-            print(converter_instrucao(instrucao_linha, nova_linha, tipo))
-
-
-
-
+            print(converter_instrucao(instrucao_linha, nova_linha))
