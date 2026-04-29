@@ -2,6 +2,9 @@ from pathlib import *
 from unittest import case
 
 # Gabriel Pessoa Faustino - 231006121
+arquivo = Path.cwd() / "teste.asm"
+
+# Gabriel Pessoa Faustino - 231006121
 instrucoes = {
     "add":  {"tipo": "R", "opcode": "0110011", "funct3": "000", "funct7": "0000000"},
     "sub":  {"tipo": "R", "opcode": "0110011", "funct3": "000", "funct7": "0100000"},
@@ -91,28 +94,35 @@ def converter_instrucao(instrucao, linha):
         case __:
             return f"Instrução {instrucao} não implementada."
 
-# Gabriel Pessoa Faustino - 231006121
-arquivo = Path.cwd() / "teste.asm"
+
+
+
+def main():
 
 # Gabriel Pessoa Faustino - 231006121
-with open(arquivo, 'r') as file:
-    linhas = file.readlines()
+    with open(arquivo, 'r') as file:
+        linhas = file.readlines()
     
-    for idx, linha in enumerate(linhas):
-        nova_linha = linha.strip()
-        
-        if not nova_linha:
-            continue
-        
-        instrucao_linha = nova_linha.replace(",", " ").split()[0]
-        
-        if instrucao_linha in instrucoes:
-            if instrucao_linha not in ordem:
-                ordem[instrucao_linha] = []
+        for idx, linha in enumerate(linhas):
+            nova_linha = linha.strip()
             
-            ordem[instrucao_linha].append((nova_linha, instrucoes[instrucao_linha]["tipo"]))
-            print(f"|{'imm':^12}|{'rs1':^5}|{'f3':^3}|{'rd':^5}|{'op':^7}|")
-            print(converter_instrucao(instrucao_linha, nova_linha))
+            if not nova_linha:
+                continue
+            
+            instrucao_linha = nova_linha.replace(",", " ").split()[0]
+            
+            if instrucao_linha in instrucoes:
+                if instrucao_linha not in ordem:
+                    ordem[instrucao_linha] = []
+                
+                ordem[instrucao_linha].append((nova_linha, instrucoes[instrucao_linha]["tipo"]))
+                print(f"|{'imm':^12}|{'rs1':^5}|{'f3':^3}|{'rd':^5}|{'op':^7}|")
+                print(converter_instrucao(instrucao_linha, nova_linha))
 
-            with open(f"{arquivo.stem}.mif", 'a') as output_file:
-                output_file.write(converter_instrucao(instrucao_linha, nova_linha) + "\n")
+                with open(f"{arquivo.stem}.mif", 'a') as output_file:
+                    output_file.write(converter_instrucao(instrucao_linha, nova_linha) + "\n")
+
+
+
+if __name__ == "__main__":
+    main()
