@@ -4,7 +4,7 @@ from pathlib import *
 arquivo = Path.cwd() / "teste.asm"
 
 # Gabriel Pessoa Faustino - 231006121
-instrucoes = {
+INSTRUCOES = {
     "add":  {"tipo": "R", "opcode": "0110011", "funct3": "000", "funct7": "0000000"},
     "sub":  {"tipo": "R", "opcode": "0110011", "funct3": "000", "funct7": "0100000"},
     "and":  {"tipo": "R", "opcode": "0110011", "funct3": "111", "funct7": "0000000"},
@@ -30,7 +30,7 @@ instrucoes = {
 }
 
 # Gabriel Pessoa Faustino - 231006121
-registradores = {
+REGISTRADORES = {
     "zero": "00000", "ra": "00001", "sp": "00010", "gp": "00011",
     "tp": "00100", "t0": "00101", "t1": "00110", "t2": "00111",
     "s0": "01000", "fp": "01000", "s1": "01001", "a0": "01010",
@@ -46,38 +46,46 @@ registradores = {
 ordem = dict()
 
 # Gabriel Pessoa Faustino - 231006121
-def int_bin(numero):
-    if numero < 0:
-        numero = (1 << 32) + numero
-    return bin(numero)[2:].zfill(12)
+def int_bin(numero,tamanho = 12):
+
+    m = (1<<tamanho) - 1
+    nm  = numero & m
+    return bin(nm)[2:].zfill(tamanho)
+
+def bin_hex(bin):
+    
+    bin = bin.replace(" ", "")
+    hex_2 = hex(int(bin, 2))[2:].upper()
+    return hex_2.zfill(8)
 
 # Gabriel Pessoa Faustino - 231006121
 def converter_instrucao(instrucao, linha):
-    partes_limpas = linha.replace(",", " ").split()
-    informacoes = instrucoes[instrucao]
+    linha_limpa = linha.replace(",", " ").replace("(", " ").replace(")", " ")
+    partes_limpas = linha_limpa.split()
+    informacoes = INSTRUCOES[instrucao]
     tipo = informacoes["tipo"]
 
     match instrucao:
         case "addi" | "andi" | "ori" | "xori":
-            rs1 = registradores[partes_limpas[2]]
-            rd = registradores[partes_limpas[1]]
+            rs1 = REGISTRADORES[partes_limpas[2]]
+            rd = REGISTRADORES[partes_limpas[1]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
             imm = int_bin(int(partes_limpas[3]))
-            return f"{imm} {rs1} {funct3} {rd} {opcode}"
+            retorno =  f"{imm} {rs1} {funct3} {rd} {opcode}"
 
         case "add" | "sub" | "and" | "or" | "xor" | "slt" | "sll" | "srl":
-            rs1 = registradores[partes_limpas[2]]
-            rs2 = registradores[partes_limpas[3]]
-            rd = registradores[partes_limpas[1]]
+            rs1 = REGISTRADORES[partes_limpas[2]]
+            rs2 = REGISTRADORES[partes_limpas[3]]
+            rd = REGISTRADORES[partes_limpas[1]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
             funct7 = informacoes["funct7"]
-            return f"{funct7} {rs2} {rs1} {funct3} {rd} {opcode}"
+            retorno = f"{funct7} {rs2} {rs1} {funct3} {rd} {opcode}"
         
         case "beq" | "bne":
-            rs1 = registradores[partes_limpas[1]]
-            rs2 = registradores[partes_limpas[2]]
+            rs1 = REGISTRADORES[partes_limpas[1]]
+            rs2 = REGISTRADORES[partes_limpas[2]]
             opcode = informacoes["opcode"]  
             funct3 = informacoes["funct3"]
 
@@ -88,10 +96,55 @@ def converter_instrucao(instrucao, linha):
             imm_4_1 = imm[7:11]      # bits de 4 a 1
             imm_11 = imm[11]         # bit 11
 
-            return f"{imm_12}{imm_10_5} {rs2} {rs1} {funct3} {imm_4_1}{imm_11} {opcode}"
+        
+
+            retorno =  f"{imm_12}{imm_10_5} {rs2} {rs1} {funct3} {imm_4_1}{imm_11} {opcode}"
+
+
+        case "sw":
+            rs2 = REGISTRADORES[partes_limpas[1]]
+            imm = int_bin(int(partes_limpas[2])) 
+            rs1 = REGISTRADORES[partes_limpas[3]]
+            opcode = informacoes["opcode"]
+            funct3 = informacoes["funct3"]
+
+            imm_11_5 = imm[0:7]
+            imm_4_0 = imm[7:12]
+            
+            retorno = f"{imm_11_5}{rs2}{rs1}{funct3}{imm_4_0}{opcode}"
+
+        case "lw" | "lhu" | "jalr":
+            rd = REGISTRADORES[partes_limpas[1]]
+            imm = int_bin(int(partes_limpas[2]))
+            rs1 = REGISTRADORES[partes_limpas[3]]
+            opcode = informacoes["opcode"]
+            funct3 = informacoes["funct3"]
+            
+            retorno = f"{imm}{rs1}{funct3}{rd}{opcode}"
+
+        case "lui" | "auipc":
+            rd = REGISTRADORES[partes_limpas[1]]
+            opcode = informacoes["opcode"]
+            imm = int_bin(int(partes_limpas[2]),20)
+
+            retorno = f"{imm}{rd}{opcode}"
+
+        case "jal":
+            rd = REGISTRADORES[partes_limpas[1]]
+            imm = int_bin(int(partes_limpas[2]),21)
+
+            imm_20 = imm[0]
+            imm_1912 = imm[1:9]
+            imm_11 = imm[9]
+            imm_101 = imm[10:20]
+
+            retorno = f"{imm_20}{imm_1912}{imm_11}{imm_101} {rd} {opcode}"
+
 
         case __:
             return f"Instrução {instrucao} não implementada."
+        
+    return bin_hex(retorno)
 
 
 
@@ -110,11 +163,11 @@ def main():
             
             instrucao_linha = nova_linha.replace(",", " ").split()[0]
             
-            if instrucao_linha in instrucoes:
+            if instrucao_linha in INSTRUCOES:
                 if instrucao_linha not in ordem:
                     ordem[instrucao_linha] = []
                 
-                ordem[instrucao_linha].append((nova_linha, instrucoes[instrucao_linha]["tipo"]))
+                ordem[instrucao_linha].append((nova_linha, INSTRUCOES[instrucao_linha]["tipo"]))
                 print(f"|{'imm':^12}|{'rs1':^5}|{'f3':^3}|{'rd':^5}|{'op':^7}|")
                 print(converter_instrucao(instrucao_linha, nova_linha))
 
