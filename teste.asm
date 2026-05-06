@@ -1,7 +1,13 @@
-addi t0, t0, 1
-addi t1, t5, 54
-andi t4, t5, 87
-ori t3, t6, 234
-xori t0, t1, 58
+addi t0, t1, 32
 
-add t0, t1, t2
+sw t5, 0(t0)
+
+or t6, t0, t5
+
+sub t3, t2, t1
+
+slti t3, t2, 43
+
+addi x10, x5, 32
+
+addi a0, t0, 32
