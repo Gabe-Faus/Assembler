@@ -100,9 +100,25 @@ def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
 # Gabriel Pessoa Faustino - 231006121
 def converter_instrucao(instrucao, linha, pc, labels):
     linha_limpa = linha.replace(",", " ").replace("(", " ").replace(")", " ")
+    
+    # Strip %hi and %lo for simplicity
+    linha_limpa = linha_limpa.replace("%hi", "").replace("%lo", "")
+    
     partes_limpas = linha_limpa.split()
+    
+    if instrucao not in INSTRUCOES:
+        return f"Opcode desconhecido ou instrucao inexistente"
+        
     informacoes = INSTRUCOES[instrucao]
     tipo = informacoes["tipo"]
+
+    def try_parse(val):
+        if val in labels:
+            return labels[val]
+        try:
+            return int(val, 0)
+        except:
+            return 0
 
     match instrucao:
         case "addi" | "andi" | "ori" | "xori" | "slti":
@@ -110,7 +126,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
             rd = REGISTRADORES[partes_limpas[1]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
-            imm = int_bin(int(partes_limpas[3]))
+            imm = int_bin(try_parse(partes_limpas[3]))
             retorno =  f"{imm} {rs1} {funct3} {rd} {opcode}"
 
         case "add" | "sub" | "and" | "or" | "xor" | "slt" | "sll" | "srl":
@@ -128,9 +144,6 @@ def converter_instrucao(instrucao, linha, pc, labels):
             opcode = informacoes["opcode"]  
             funct3 = informacoes["funct3"]
 
-
-
-            # Washington Marinho dos Santos - 170072274
             salto = partes_limpas[3] # Guarda o salto na variavel 
 
             # O salto pode ser um Label ou um Imediato, então é preciso testar.
@@ -138,8 +151,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
             if salto in labels:
                 alvo = labels[salto] - pc
             else:
-                alvo = int(salto)
-
+                alvo = try_parse(salto)
 
             imm = int_bin(alvo, 12) # 
 
@@ -157,7 +169,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
 
         case "sw":
             rs2 = REGISTRADORES[partes_limpas[1]]
-            imm = int_bin(int(partes_limpas[2])) 
+            imm = int_bin(try_parse(partes_limpas[2])) 
             rs1 = REGISTRADORES[partes_limpas[3]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
@@ -168,9 +180,14 @@ def converter_instrucao(instrucao, linha, pc, labels):
             retorno = f"{imm_11_5}{rs2}{rs1}{funct3}{imm_4_0}{opcode}"
 
         case "lw" | "lhu" | "jalr":
-            rd = REGISTRADORES[partes_limpas[1]]
-            imm = int_bin(int(partes_limpas[2]))
-            rs1 = REGISTRADORES[partes_limpas[3]]
+            if instrucao == "jalr" and len(partes_limpas) == 3:
+                rd = REGISTRADORES[partes_limpas[1]]
+                imm = "000000000000"
+                rs1 = REGISTRADORES[partes_limpas[2]]
+            else:
+                rd = REGISTRADORES[partes_limpas[1]]
+                imm = int_bin(try_parse(partes_limpas[2]))
+                rs1 = REGISTRADORES[partes_limpas[3]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
             
@@ -179,22 +196,26 @@ def converter_instrucao(instrucao, linha, pc, labels):
         case "lui" | "auipc":
             rd = REGISTRADORES[partes_limpas[1]]
             opcode = informacoes["opcode"]
-            imm = int_bin(int(partes_limpas[2]),20)
+            imm = int_bin(try_parse(partes_limpas[2]),20)
 
             retorno = f"{imm}{rd}{opcode}"
 
         case "jal":
-            rd = REGISTRADORES[partes_limpas[1]]
+            if len(partes_limpas) == 2:
+                rd = REGISTRADORES["ra"]
+                salto = partes_limpas[1]
+            else:
+                rd = REGISTRADORES[partes_limpas[1]]
+                salto = partes_limpas[2]
+            opcode = informacoes["opcode"]
 
-
-            # Washington Marinho dos Santos - 170072274
             salto = partes_limpas[2]
 
             # Mesma verificação do salto que foi feita para o beq/bne
             if salto in labels:
                 alvo = labels[salto] - pc
             else:
-                alvo = int(salto)                                                                 
+                alvo = try_parse(salto)                                                                 
 
             imm = int_bin(alvo, 21)
 
@@ -278,8 +299,8 @@ def main():
 
             
             if ":" in nova_linha:
-                if nova_linha.split()[1] in INSTRUCOES: 
-                    nova_linha = nova_linha.split(":")[1].strip()
+                partes = nova_linha.split(":", 1)
+                nova_linha = partes[1].strip()
                 if not nova_linha:
                     continue
 
