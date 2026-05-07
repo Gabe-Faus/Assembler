@@ -70,20 +70,23 @@ def bin_hex(bin):
 # Washington Marinho dos Santos - 170072274
 def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
     # Gerar o .mif da parte data
+
+
     with open(f"{nome_arquivo}_data.mif", 'w') as f:
-        f.write("DEPTH = ;\n")
+        f.write(f"DEPTH = {max(len(conjunto_data), 1)};\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
         f.write("CONTENT BEGIN\n")
 
-        for i, valor_hex in conjunto_data:
-            f.write(f"{i}  :  {valor_hex};\n")
+        for i, valor_hex in enumerate(conjunto_data):
+            endereco = 0x10010000 + (i * 4)
+            f.write(f"{bin_hex(int_bin(endereco, 32))}  :  {valor_hex};\n")
 
         f.write("END;\n")
 
     
-    # Gerar o .mif da parte text
+    # Gerar o .mif
     with open(f"{nome_arquivo}_text.mif", 'w') as f:
         f.write("DEPTH = ;\n")
         f.write("WIDTH = 32;\n")
@@ -101,7 +104,6 @@ def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
 def converter_instrucao(instrucao, linha, pc, labels):
     linha_limpa = linha.replace(",", " ").replace("(", " ").replace(")", " ")
     
-    # Strip %hi and %lo for simplicity
     linha_limpa = linha_limpa.replace("%hi", "").replace("%lo", "")
     
     partes_limpas = linha_limpa.split()
@@ -146,8 +148,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
 
             salto = partes_limpas[3] # Guarda o salto na variavel 
 
-            # O salto pode ser um Label ou um Imediato, então é preciso testar.
-            # A variavel alvo é a offset para o salto referente a intrução atual
+
             if salto in labels:
                 alvo = labels[salto] - pc
             else:
@@ -211,7 +212,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
 
             salto = partes_limpas[2]
 
-            # Mesma verificação do salto que foi feita para o beq/bne
+            # salto que foi feita para o beq/bne
             if salto in labels:
                 alvo = labels[salto] - pc
             else:
@@ -247,40 +248,67 @@ def main():
     
 
         # Washington Marinho dos Santos - 170072274
-        # Quando temos um label de salto, precisamos guardar o seu PC, o contador da insturção, porque precisaremos para realizar o salto.
-        labels = {} # Um dicionario para guardar os labels e seu contador PC
-        contador_pc = 0 # Contador das intruções que salta de 4 em 4.
+        labels = {} # 
+        contador_pc = 0
+        contador_data = 0x10010000 
+        campo = ".text" # padrão caso não tenha .data e .text
 
-        # É realizado uma primeira passagem no arquivo completo para criar o dicionario de labels, para realizar os saltos.
         for linha in linhas:
-            # É preciso tratar comentários, como eles são feitos utilizando o '#', precisa-se ignorá-los
             linha_sem_comentario = linha.split('#')[0]
             linha_limpa = linha_sem_comentario.strip()
 
-            # Ignorar comentantario, linha vazia e diretivas
-            if not linha_limpa or linha_limpa.startswith("."):
+            # Ignora comentantar linha vazia 
+            if not linha_limpa:
+                continue
+
+            if linha_limpa == ".data":
+                campo = ".data"
+                continue
+            elif linha_limpa == ".text":
+                campo = ".text"
                 continue
             
-            # No RARS os labels contém o ':', utiliza-se isso para guarda o label e o seu contador atual.
             if ":" in linha_limpa:
-                label = linha_limpa.split(':') # soma: add t1, t2, t3
+                label = linha_limpa.split(':', 1)
                 nome_label = label[0].strip()
 
-                labels[nome_label] = contador_pc
-                instucao_com_label = label[1].split()
-                if instucao_com_label and instucao_com_label[0] in INSTRUCOES:
-                    contador_pc += 4 # Essa instução deve ser contada, se for uma intrução invalida é ignorada
-                        
+                if campo == ".text":
+                    labels[nome_label] = contador_pc
+                    instucao_com_label = label[1].strip()
+                    if instucao_com_label:
+                        contador_pc += 4
+                elif campo == ".data":
+                    labels[nome_label] = contador_data
+                    instucao_com_label = label[1].strip()
+                    if instucao_com_label:
+                        linha_limpa = instucao_com_label # para processar abaixo
+                    else:
+                        continue
             else:
-                contador_pc += 4 # Cada instrução tem 32 bits, ou seja, 4 Bytes, por isso += 4.
+                if campo == ".text":
+                    contador_pc += 4
+                    
+            # Processa avanço de endereço na área .data
+            if campo == ".data":
+                if linha_limpa.startswith(".word"):
+                    valores = linha_limpa.replace(".word", "").replace(",", " ").split()
+                    contador_data += 4 * len(valores)
+                elif linha_limpa.startswith(".asciz") or linha_limpa.startswith(".string"):
+                    inicio = linha_sem_comentario.find('"')
+                    fim = linha_sem_comentario.rfind('"')
+                    if inicio != -1 and fim != -1:
+                        string_val = linha_sem_comentario[inicio+1:fim]
+                        chars = len(string_val) + 1
+                        resto = chars % 4
+                        chars += (4 - resto) if resto != 0 else 0
+                        contador_data += chars
 
         
-        contador_pc = 0 # Incializando o PC para fazer a segunda leitura do arquivo, porém agora com objetivo de obter o arquvos .mif  
+        contador_pc = 0 
         lista_data = []
         lista_text = []
         conjunto_instrucoes = []
         campo = " "
-        # Segunda passagem no arquivo assembly
         for idx, linha in enumerate(linhas):
 
             linha_sem_comentario = linha.split('#')[0]
@@ -289,7 +317,7 @@ def main():
             if not nova_linha:
                 continue
             
-            # Verificando em qual campo ou diretiva está no codigo
+
             if nova_linha == ".data":
                 campo = ".data"
                 continue
@@ -305,7 +333,30 @@ def main():
                     continue
 
             if campo == ".data":
-                contador_pc += 4
+                if nova_linha.startswith(".word"):
+                    valores = nova_linha.replace(".word", "").replace(",", " ").split()
+                    for val in valores:
+                        lista_data.append(bin_hex(int_bin(int(val, 0), 32)))
+                        contador_pc += 4
+                elif nova_linha.startswith(".asciz") or nova_linha.startswith(".string"):
+                    # Um tratamento simples para strings (em extrações básicas de palavras)
+                    # Não perfeitamente estrito ao RISC-V, mas preenche a memória
+                    inicio = linha_sem_comentario.find('"')
+                    fim = linha_sem_comentario.rfind('"')
+                    if inicio != -1 and fim != -1:
+                        string_val = linha_sem_comentario[inicio+1:fim]
+                        # Adiciona terminador nulo e faz padding para múltiplos de 4
+                        chars = [ord(c) for c in string_val] + [0]
+                        while len(chars) % 4 != 0:
+                            chars.append(0)
+                        
+                        for i in range(0, len(chars), 4):
+                            # Little endian
+                            word_val = (chars[i+3] << 24) | (chars[i+2] << 16) | (chars[i+1] << 8) | chars[i]
+                            lista_data.append(bin_hex(int_bin(word_val, 32)))
+                            contador_pc += 4
+                else:                 
+                    contador_pc += 4
             elif campo == ".text":
                 
                 instrucao_linha = nova_linha.replace(",", " ").split()[0]
