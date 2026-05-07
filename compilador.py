@@ -114,7 +114,8 @@ def converter_instrucao(instrucao, linha, pc, labels):
     informacoes = INSTRUCOES[instrucao]
     tipo = informacoes["tipo"]
 
-    def try_parse(val):
+    # func auxiliar p/ lidar com immediatos e labels
+    def pega_numero(val):
         if val in labels:
             return labels[val]
         try:
@@ -128,7 +129,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
             rd = REGISTRADORES[partes_limpas[1]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
-            imm = int_bin(try_parse(partes_limpas[3]))
+            imm = int_bin(pega_numero(partes_limpas[3]))
             retorno =  f"{imm} {rs1} {funct3} {rd} {opcode}"
 
         case "add" | "sub" | "and" | "or" | "xor" | "slt" | "sll" | "srl":
@@ -152,7 +153,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
             if salto in labels:
                 alvo = labels[salto] - pc
             else:
-                alvo = try_parse(salto)
+                alvo = pega_numero(salto)
 
             imm = int_bin(alvo, 12) # 
 
@@ -170,7 +171,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
 
         case "sw":
             rs2 = REGISTRADORES[partes_limpas[1]]
-            imm = int_bin(try_parse(partes_limpas[2])) 
+            imm = int_bin(pega_numero(partes_limpas[2])) 
             rs1 = REGISTRADORES[partes_limpas[3]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
@@ -187,7 +188,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
                 rs1 = REGISTRADORES[partes_limpas[2]]
             else:
                 rd = REGISTRADORES[partes_limpas[1]]
-                imm = int_bin(try_parse(partes_limpas[2]))
+                imm = int_bin(pega_numero(partes_limpas[2]))
                 rs1 = REGISTRADORES[partes_limpas[3]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
@@ -197,7 +198,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
         case "lui" | "auipc":
             rd = REGISTRADORES[partes_limpas[1]]
             opcode = informacoes["opcode"]
-            imm = int_bin(try_parse(partes_limpas[2]),20)
+            imm = int_bin(pega_numero(partes_limpas[2]),20)
 
             retorno = f"{imm}{rd}{opcode}"
 
@@ -216,7 +217,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
             if salto in labels:
                 alvo = labels[salto] - pc
             else:
-                alvo = try_parse(salto)                                                                 
+                alvo = pega_numero(salto)                                                                 
 
             imm = int_bin(alvo, 21)
 
@@ -228,8 +229,8 @@ def converter_instrucao(instrucao, linha, pc, labels):
             retorno = f"{imm_20}{imm_1912}{imm_11}{imm_101}{rd}{opcode}"
 
         
-        case __:
-            return f"Instrução {instrucao} não implementada."
+        case _:
+            return f"Instrucao {instrucao} nao implementada."
         
         
     return bin_hex(retorno)
@@ -239,10 +240,9 @@ def converter_instrucao(instrucao, linha, pc, labels):
 
 def main():
 
-    nome_arquivo = input("Digite o nome do arquivo que deseja compilar: ")
-    # Gabriel Pessoa Faustino - 231006121
+    nome_arquivo = input("Arquivo .asm: ")
     arquivo = Path.cwd() / nome_arquivo
-    # Gabriel Pessoa Faustino - 231006121
+    
     with open(arquivo, 'r') as file:
         linhas = file.readlines()
     
@@ -381,9 +381,9 @@ def main():
                     output_file.write("0x" + resultado_hexadecimal + "\n")
                     """
                 
-        arquivo_nome = input(f"DIgite o nome do arquivo .mif a ser gerado: ")
+        arquivo_nome = input(f"Nome do arquivo final (sem o .mif): ")
         gerar_arquivo_mif(arquivo_nome, lista_text, lista_data, conjunto_instrucoes)
-        print(f"Aqruivos {arquivo_nome}_data.mif e {arquivo_nome}_text.mif criados com sucesso!")
+        print(f"Arquivos {arquivo_nome}_data.mif e {arquivo_nome}_text.mif criados com sucesso!")
                 
 
 if __name__ == "__main__":
