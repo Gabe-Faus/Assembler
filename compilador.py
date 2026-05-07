@@ -66,8 +66,39 @@ def bin_hex(bin):
     hex_2 = hex(int(bin, 2))[2:].upper()
     return hex_2.zfill(8)
 
+
+# Washington Marinho dos Santos - 170072274
+def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
+    # Gerar o .mif da parte data
+    with open(f"{nome_arquivo}_data.mif", 'w') as f:
+        f.write("DEPTH = ;\n")
+        f.write("WIDTH = 32;\n")
+        f.write("ADDRESS_RADIX = HEX;\n")
+        f.write("DATA_RADIX = HEX;\n")
+        f.write("CONTENT BEGIN\n")
+
+        for i, valor_hex in conjunto_data:
+            f.write(f"{i}  :  {valor_hex};\n")
+
+        f.write("END;\n")
+
+    
+    # Gerar o .mif da parte text
+    with open(f"{nome_arquivo}_text.mif", 'w') as f:
+        f.write("DEPTH = ;\n")
+        f.write("WIDTH = 32;\n")
+        f.write("ADDRESS_RADIX = HEX;\n")
+        f.write("DATA_RADIX = HEX;\n")
+        f.write("CONTENT BEGIN\n")
+
+        for i, valor_hex in enumerate(conjunto_text):
+            f.write(f"{bin_hex(int_bin(i,32))}  :  {valor_hex};    % {instrucoes[i]} %\n")
+
+
+        f.write("END;\n")
+
 # Gabriel Pessoa Faustino - 231006121
-def converter_instrucao(instrucao, linha):
+def converter_instrucao(instrucao, linha, pc, labels):
     linha_limpa = linha.replace(",", " ").replace("(", " ").replace(")", " ")
     partes_limpas = linha_limpa.split()
     informacoes = INSTRUCOES[instrucao]
@@ -97,7 +128,22 @@ def converter_instrucao(instrucao, linha):
             opcode = informacoes["opcode"]  
             funct3 = informacoes["funct3"]
 
-            imm = int_bin(int(partes_limpas[3])) 
+
+
+            # Washington Marinho dos Santos - 170072274
+            salto = partes_limpas[3] # Guarda o salto na variavel 
+
+            # O salto pode ser um Label ou um Imediato, então é preciso testar.
+            # A variavel alvo é a offset para o salto referente a intrução atual
+            if salto in labels:
+                alvo = labels[salto] - pc
+            else:
+                alvo = int(salto)
+
+
+            imm = int_bin(alvo, 12) # 
+
+
 
             imm_12 = imm[0]          # bit 12
             imm_10_5 = imm[1:7]      # bits de 10 a 5
@@ -139,18 +185,30 @@ def converter_instrucao(instrucao, linha):
 
         case "jal":
             rd = REGISTRADORES[partes_limpas[1]]
-            imm = int_bin(int(partes_limpas[2]),21)
+
+
+            # Washington Marinho dos Santos - 170072274
+            salto = partes_limpas[2]
+
+            # Mesma verificação do salto que foi feita para o beq/bne
+            if salto in labels:
+                alvo = labels[salto] - pc
+            else:
+                alvo = int(salto)                                                                 
+
+            imm = int_bin(alvo, 21)
 
             imm_20 = imm[0]
             imm_1912 = imm[1:9]
             imm_11 = imm[9]
             imm_101 = imm[10:20]
 
-            retorno = f"{imm_20}{imm_1912}{imm_11}{imm_101} {rd} {opcode}"
+            retorno = f"{imm_20}{imm_1912}{imm_11}{imm_101}{rd}{opcode}"
 
-
+        
         case __:
             return f"Instrução {instrucao} não implementada."
+        
         
     return bin_hex(retorno)
 
@@ -166,26 +224,95 @@ def main():
     with open(arquivo, 'r') as file:
         linhas = file.readlines()
     
+
+        # Washington Marinho dos Santos - 170072274
+        # Quando temos um label de salto, precisamos guardar o seu PC, o contador da insturção, porque precisaremos para realizar o salto.
+        labels = {} # Um dicionario para guardar os labels e seu contador PC
+        contador_pc = 0 # Contador das intruções que salta de 4 em 4.
+
+        # É realizado uma primeira passagem no arquivo completo para criar o dicionario de labels, para realizar os saltos.
+        for linha in linhas:
+            # É preciso tratar comentários, como eles são feitos utilizando o '#', precisa-se ignorá-los
+            linha_sem_comentario = linha.split('#')[0]
+            linha_limpa = linha_sem_comentario.strip()
+
+            # Ignorar comentantario, linha vazia e diretivas
+            if not linha_limpa or linha_limpa.startswith("."):
+                continue
+            
+            # No RARS os labels contém o ':', utiliza-se isso para guarda o label e o seu contador atual.
+            if ":" in linha_limpa:
+                label = linha_limpa.split(':') # soma: add t1, t2, t3
+                nome_label = label[0].strip()
+
+                labels[nome_label] = contador_pc
+                instucao_com_label = label[1].split()
+                if instucao_com_label and instucao_com_label[0] in INSTRUCOES:
+                    contador_pc += 4 # Essa instução deve ser contada, se for uma intrução invalida é ignorada
+                        
+            else:
+                contador_pc += 4 # Cada instrução tem 32 bits, ou seja, 4 Bytes, por isso += 4.
+
+        
+        contador_pc = 0 # Incializando o PC para fazer a segunda leitura do arquivo, porém agora com objetivo de obter o arquvos .mif  
+        lista_data = []
+        lista_text = []
+        conjunto_instrucoes = []
+        campo = " "
+        # Segunda passagem no arquivo assembly
         for idx, linha in enumerate(linhas):
-            nova_linha = linha.strip()
+
+            linha_sem_comentario = linha.split('#')[0]
+            nova_linha = linha_sem_comentario.strip()
             
             if not nova_linha:
                 continue
             
-            instrucao_linha = nova_linha.replace(",", " ").split()[0]
+            # Verificando em qual campo ou diretiva está no codigo
+            if nova_linha == ".data":
+                campo = ".data"
+                continue
+            elif nova_linha == ".text":
+                campo = ".text"
+                continue
+
             
-            if instrucao_linha in INSTRUCOES:
-                if instrucao_linha not in ordem:
-                    ordem[instrucao_linha] = []
+            if ":" in nova_linha:
+                if nova_linha.split()[1] in INSTRUCOES: 
+                    nova_linha = nova_linha.split(":")[1].strip()
+                if not nova_linha:
+                    continue
+
+            if campo == ".data":
+                contador_pc += 4
+            elif campo == ".text":
                 
-                ordem[instrucao_linha].append((nova_linha, INSTRUCOES[instrucao_linha]["tipo"]))
-                print(f"|{'imm':^12}|{'rs1':^5}|{'f3':^3}|{'rd':^5}|{'op':^7}|")
-                print(converter_instrucao(instrucao_linha, nova_linha))
+                instrucao_linha = nova_linha.replace(",", " ").split()[0]
+                resultado_hexadecimal = converter_instrucao(instrucao_linha, nova_linha, contador_pc, labels)
+                #print(f"{nova_linha} ===> Hexadecimal: 0x{resultado_hexadecimal}\n")
+                lista_text.append(resultado_hexadecimal)
+                conjunto_instrucoes.append(nova_linha)
+
+                contador_pc += 4
+                
+                """if instrucao_linha in INSTRUCOES:
+                    if instrucao_linha not in ordem:
+                        ordem[instrucao_linha] = []
+                    
+                    ordem[instrucao_linha].append((nova_linha, INSTRUCOES[instrucao_linha]["tipo"]))
+
+                # print(f"|{'imm':^12}|{'rs1':^5}|{'f3':^3}|{'rd':^5}|{'op':^7}|")
+                #sugestão de remoção da linha acima, nem toda instrução vai ter essa estrutura
+
 
                 with open(f"{arquivo.stem}.mif", 'a') as output_file:
-                    output_file.write(converter_instrucao(instrucao_linha, nova_linha) + "\n")
-
-
+                    output_file.write("0x" + resultado_hexadecimal + "\n")
+                    """
+                
+        arquivo_nome = input(f"DIgite o nome do arquivo .mif a ser gerado: ")
+        gerar_arquivo_mif(arquivo_nome, lista_text, lista_data, conjunto_instrucoes)
+        print(f"Aqruivos {arquivo_nome}_data.mif e {arquivo_nome}_text.mif criados com sucesso!")
+                
 
 if __name__ == "__main__":
     main()
