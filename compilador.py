@@ -70,25 +70,28 @@ def bin_hex(bin):
 # Washington Marinho dos Santos - 170072274
 def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
     # Gerar o .mif da parte data
-
+    
+    depth_padrao = 32768 # 32768 words = 128 KB (Tamanho comum no Quartus/FPGA)
 
     with open(f"{nome_arquivo}_data.mif", 'w') as f:
-        f.write(f"DEPTH = {max(len(conjunto_data), 1)};\n")
+        f.write(f"DEPTH = {depth_padrao};\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
         f.write("CONTENT BEGIN\n")
 
         for i, valor_hex in enumerate(conjunto_data):
-            endereco = 0x10010000 + (i * 4)
-            f.write(f"{bin_hex(int_bin(endereco, 32))}  :  {valor_hex};\n")
+            f.write(f"{bin_hex(int_bin(i, 32))}  :  {valor_hex};\n")
+            
+        if len(conjunto_data) < depth_padrao:
+            f.write(f"[{bin_hex(int_bin(len(conjunto_data), 32))}..{bin_hex(int_bin(depth_padrao - 1, 32))}]  :  00000000;\n")
 
         f.write("END;\n")
 
     
-    # Gerar o .mif
+    # Gerar o .mif da parte text
     with open(f"{nome_arquivo}_text.mif", 'w') as f:
-        f.write("DEPTH = ;\n")
+        f.write(f"DEPTH = {depth_padrao};\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
@@ -96,7 +99,9 @@ def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
 
         for i, valor_hex in enumerate(conjunto_text):
             f.write(f"{bin_hex(int_bin(i,32))}  :  {valor_hex};    % {instrucoes[i]} %\n")
-
+            
+        if len(conjunto_text) < depth_padrao:
+            f.write(f"[{bin_hex(int_bin(len(conjunto_text), 32))}..{bin_hex(int_bin(depth_padrao - 1, 32))}]  :  00000000;\n")
 
         f.write("END;\n")
 
