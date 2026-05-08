@@ -1,6 +1,5 @@
 from pathlib import *
 
-# Gabriel Pessoa Faustino - 231006121
 INSTRUCOES = {
     "add":   {"tipo": "R", "opcode": "0110011", "funct3": "000", "funct7": "0000000"},
     "sub":   {"tipo": "R", "opcode": "0110011", "funct3": "000", "funct7": "0100000"},
@@ -10,7 +9,6 @@ INSTRUCOES = {
     "slt":   {"tipo": "R", "opcode": "0110011", "funct3": "010", "funct7": "0000000"},
     "sll":   {"tipo": "R", "opcode": "0110011", "funct3": "001", "funct7": "0000000"},
     "srl":   {"tipo": "R", "opcode": "0110011", "funct3": "101", "funct7": "0000000"},
-    # CORREÇÃO: slli e srli são instruções tipo I (shift immediate)
     "slli":  {"tipo": "IS", "opcode": "0010011", "funct3": "001", "funct7": "0000000"},
     "srli":  {"tipo": "IS", "opcode": "0010011", "funct3": "101", "funct7": "0000000"},
     "srai":  {"tipo": "IS", "opcode": "0010011", "funct3": "101", "funct7": "0100000"},
@@ -30,7 +28,6 @@ INSTRUCOES = {
     "jal":   {"tipo": "J", "opcode": "1101111"},
 }
 
-# Gabriel Pessoa Faustino - 231006121
 REGISTRADORES = {
     **{f"x{i}": format(i, "05b") for i in range(32)},
     "zero": "00000",
@@ -48,12 +45,10 @@ REGISTRADORES = {
     "t3": "11100", "t4": "11101", "t5": "11110", "t6": "11111",
 }
 
-# Mapa de memória RISC-V (padrão RARS)
-# CORREÇÃO: Definir as bases corretas conforme o mapa de memória do RARS/RISC-V
-TEXT_BASE = 0x00400000   # Segmento .text começa em 0x00400000
-DATA_BASE = 0x10010000   # Segmento .data começa em 0x10010000
 
-# Gabriel Pessoa Faustino - 231006121
+TEXT_BASE = 0x00400000  
+DATA_BASE = 0x10010000   
+
 def int_bin(numero, tamanho=12):
     m = (1 << tamanho) - 1
     nm = numero & m
@@ -92,12 +87,13 @@ def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
 
         if len(conjunto_data) < depth_padrao:
             end_used = data_word_base + len(conjunto_data)
-            end_range = data_word_base + depth_padrao - 1
-            f.write(f"[{bin_hex(int_bin(end_used, 32))}..{bin_hex(int_bin(end_range, 32))}]  :  00000000;\n")
+            end_range = data_word_base + depth_padrao
+
+            for addr in range(end_used, end_range):
+                f.write(f"{bin_hex(int_bin(addr, 32))}  :  00000000;\n")
 
         f.write("END;\n")
 
-    # --- Gerar .mif do segmento .text ---
     with open(f"{nome_arquivo}_text.mif", 'w') as f:
         f.write(f"DEPTH = {depth_padrao};\n")
         f.write("WIDTH = 32;\n")
@@ -109,23 +105,29 @@ def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
             addr = text_word_base + i
             f.write(f"{bin_hex(int_bin(addr, 32))}  :  {valor_hex};    % {instrucoes[i]} %\n")
 
+
+        """
+        Resumo dos endereços;
+            if len(conjunto_text) < depth_padrao: 
+                end_used = text_word_base + len(conjunto_text) 
+                end_range = text_word_base + depth_padrao - 1 
+                f.write(f"[{bin_hex(int_bin(end_used, 32))}..{bin_hex(int_bin(end_range, 32))}] : 00000000;\n")
+        """
         if len(conjunto_text) < depth_padrao:
             end_used = text_word_base + len(conjunto_text)
-            end_range = text_word_base + depth_padrao - 1
-            f.write(f"[{bin_hex(int_bin(end_used, 32))}..{bin_hex(int_bin(end_range, 32))}]  :  00000000;\n")
+            end_range = text_word_base + depth_padrao
+
+            for addr in range(end_used, end_range):
+                f.write(f"{bin_hex(int_bin(addr, 32))}  :  00000000;\n")
 
         f.write("END;\n")
 
 
-# Gabriel Pessoa Faustino - 231006121
+
 def converter_instrucao(instrucao, linha, pc, labels):
-    """
-    Converte uma instrução assembly RISC-V para hexadecimal.
-    pc: endereço em bytes da instrução atual (relativo ao início do .text, base 0x00400000)
-    """
+    
     linha_limpa = linha.replace(",", " ").replace("(", " ").replace(")", " ")
 
-    # CORREÇÃO: Tratar %hi e %lo corretamente — marcamos para processar depois
     tem_hi = "%hi" in linha_limpa
     tem_lo = "%lo" in linha_limpa
     linha_limpa = linha_limpa.replace("%hi", "").replace("%lo", "")
@@ -138,7 +140,6 @@ def converter_instrucao(instrucao, linha, pc, labels):
     informacoes = INSTRUCOES[instrucao]
 
     def pega_numero(val):
-        """Resolve um valor: label, hex (0x...) ou inteiro."""
         if val in labels:
             return labels[val]
         try:
@@ -147,25 +148,19 @@ def converter_instrucao(instrucao, linha, pc, labels):
             return 0
 
     def pega_hi(val):
-        """
-        CORREÇÃO: %hi(label) = bits [31:12] do endereço absoluto.
-        Também ajusta para o complemento do sinal de %lo (se %lo for negativo).
-        """
+
         addr = pega_numero(val)
         lo = addr & 0xFFF
         hi = addr >> 12
-        # Se o bit 11 do lo estiver setado, lui+addi vai subtrair — ajustamos hi
+  
         if lo >= 0x800:
             hi += 1
         return hi
 
     def pega_lo(val):
-        """
-        CORREÇÃO: %lo(label) = bits [11:0] do endereço, com sinal.
-        """
+       
         addr = pega_numero(val)
         lo = addr & 0xFFF
-        # Converte para signed 12-bit
         if lo >= 0x800:
             lo -= 0x1000
         return lo
@@ -194,8 +189,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
             funct7 = informacoes["funct7"]
             retorno = f"{funct7} {rs2} {rs1} {funct3} {rd} {opcode}"
 
-        # CORREÇÃO: slli / srli / srai são shift-imediato (tipo IS)
-        # Formato: funct7 | shamt(5 bits) | rs1 | funct3 | rd | opcode
+      
         case "slli" | "srli" | "srai":
             rd     = REGISTRADORES[partes_limpas[1]]
             rs1    = REGISTRADORES[partes_limpas[2]]
@@ -214,12 +208,11 @@ def converter_instrucao(instrucao, linha, pc, labels):
             salto  = partes_limpas[3]
 
             if salto in labels:
-                # labels de .text são em bytes absolutos a partir de TEXT_BASE
                 alvo = labels[salto] - pc
             else:
                 alvo = pega_numero(salto)
 
-            imm = int_bin(alvo, 13)  # 13 bits: [12|10:5|4:1|11]
+            imm = int_bin(alvo, 13) 
             imm_12   = imm[0]
             imm_10_5 = imm[1:7]
             imm_4_1  = imm[7:11]
@@ -254,7 +247,6 @@ def converter_instrucao(instrucao, linha, pc, labels):
         case "lui" | "auipc":
             rd     = REGISTRADORES[partes_limpas[1]]
             opcode = informacoes["opcode"]
-            # CORREÇÃO: %hi usa os 20 bits superiores do endereço absoluto
             if tem_hi:
                 imm_val = pega_hi(partes_limpas[2])
             else:
@@ -263,13 +255,10 @@ def converter_instrucao(instrucao, linha, pc, labels):
             retorno = f"{imm} {rd} {opcode}"
 
         case "jal":
-            # CORREÇÃO: corrigir o bug onde salto era sempre partes_limpas[2]
             if len(partes_limpas) == 2:
-                # jal label  (rd implícito = ra)
                 rd    = REGISTRADORES["ra"]
                 salto = partes_limpas[1]
             else:
-                # jal rd, label
                 rd    = REGISTRADORES[partes_limpas[1]]
                 salto = partes_limpas[2]
 
@@ -280,7 +269,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
             else:
                 alvo = pega_numero(salto)
 
-            imm = int_bin(alvo, 21)  # 21 bits: [20|10:1|11|19:12]
+            imm = int_bin(alvo, 21)  
             imm_20   = imm[0]
             imm_1912 = imm[1:9]
             imm_11   = imm[9]
@@ -300,15 +289,10 @@ def main():
     with open(arquivo, 'r') as file:
         linhas = file.readlines()
 
-    # ---------------------------------------------------------------
-    # Washington Marinho dos Santos - 170072274
-    # PASSO 1: Primeira passagem — coletar labels e calcular endereços
-    # CORREÇÃO: labels de .text são endereços absolutos em bytes (base TEXT_BASE)
-    #           labels de .data são endereços absolutos em bytes (base DATA_BASE)
-    # ---------------------------------------------------------------
+   
     labels = {}
-    contador_pc   = TEXT_BASE   # PC em bytes, começa em 0x00400000
-    contador_data = DATA_BASE   # Data em bytes, começa em 0x10010000
+    contador_pc   = TEXT_BASE   
+    contador_data = DATA_BASE   
     campo = ".text"
 
     for linha in linhas:
@@ -359,10 +343,8 @@ def main():
                     chars += (4 - resto) if resto != 0 else 0
                     contador_data += chars
 
-    # ---------------------------------------------------------------
-    # PASSO 2: Segunda passagem — gerar código objeto
-    # ---------------------------------------------------------------
-    contador_pc = TEXT_BASE  # Reinicia o PC para a geração de código
+
+    contador_pc = TEXT_BASE  
     lista_data  = []
     lista_text  = []
     conjunto_instrucoes = []
