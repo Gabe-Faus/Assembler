@@ -59,69 +59,55 @@ def bin_hex(bin_str):
     hex_2 = hex(int(bin_str, 2))[2:].upper()
     return hex_2.zfill(8)
 
-# Washington Marinho dos Santos - 170072274
+
 def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
-    """
-    Gera os arquivos MIF com o mapeamento correto de memória RISC-V.
-    CORREÇÃO: Os endereços MIF são calculados com base nas regiões reais
-    de memória do RARS (.text em 0x00400000, .data em 0x10010000).
-    Como WIDTH=32 (4 bytes por palavra), o endereço MIF = endereço_byte / 4.
-    """
-    depth_padrao = 32768  # 32768 words = 128 KB
 
-    # Endereço inicial em palavras (word-addressed) para cada segmento
-    text_word_base = TEXT_BASE // 4  # 0x00100000
-    data_word_base = DATA_BASE // 4  # 0x04004000
+    depth_padrao = 1024 # para terminar em 3ff se usar o 32768 ai vai terminar em 7fff
 
-    # --- Gerar .mif do segmento .data ---
+    # ---------------- DATA ----------------
     with open(f"{nome_arquivo}_data.mif", 'w') as f:
+
         f.write(f"DEPTH = {depth_padrao};\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
-        f.write("CONTENT BEGIN\n")
+        f.write("CONTENT\n")
+        f.write("BEGIN\n")
 
         for i, valor_hex in enumerate(conjunto_data):
-            addr = data_word_base + i
-            f.write(f"{bin_hex(int_bin(addr, 32))}  :  {valor_hex};\n")
+            f.write(f"{i:08x} : {valor_hex.lower()};\n")
 
-        if len(conjunto_data) < depth_padrao:
-            end_used = data_word_base + len(conjunto_data)
-            end_range = data_word_base + depth_padrao
-
-            for addr in range(end_used, end_range):
-                f.write(f"{bin_hex(int_bin(addr, 32))}  :  00000000;\n")
+        for addr in range(len(conjunto_data), depth_padrao):
+            f.write(f"{addr:08x} : 00000000;\n")
 
         f.write("END;\n")
 
+    # ---------------- TEXT ----------------
     with open(f"{nome_arquivo}_text.mif", 'w') as f:
+
         f.write(f"DEPTH = {depth_padrao};\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
-        f.write("CONTENT BEGIN\n")
+        f.write("CONTENT\n")
+        f.write("BEGIN\n")
 
         for i, valor_hex in enumerate(conjunto_text):
-            addr = text_word_base + i
-            f.write(f"{bin_hex(int_bin(addr, 32))}  :  {valor_hex};    % {instrucoes[i]} %\n")
 
+            f.write(f"{i:08x} : {valor_hex.lower()};")
+
+            if i < len(instrucoes):
+                f.write(f"    % {instrucoes[i]} %")
+
+            f.write("\n")
 
         """
-        Resumo dos endereços;
-            if len(conjunto_text) < depth_padrao: 
-                end_used = text_word_base + len(conjunto_text) 
-                end_range = text_word_base + depth_padrao - 1 
-                f.write(f"[{bin_hex(int_bin(end_used, 32))}..{bin_hex(int_bin(end_range, 32))}] : 00000000;\n")
+        for addr in range(len(conjunto_text), depth_padrao):
+            f.write(f"{addr:08x} : 00000000;\n")
         """
-        if len(conjunto_text) < depth_padrao:
-            end_used = text_word_base + len(conjunto_text)
-            end_range = text_word_base + depth_padrao
-
-            for addr in range(end_used, end_range):
-                f.write(f"{bin_hex(int_bin(addr, 32))}  :  00000000;\n")
-
+        
         f.write("END;\n")
-
+        
 
 
 def converter_instrucao(instrucao, linha, pc, labels):
