@@ -46,71 +46,68 @@ REGISTRADORES = {
 }
 
 
-TEXT_BASE = 0x00400000  
-DATA_BASE = 0x10010000   
+BASE_TEXTO = 0x00400000  
+BASE_DADOS = 0x10010000   
 
-def int_bin(numero, tamanho=12):
+def inteiro_para_binario(numero, tamanho=12):
     m = (1 << tamanho) - 1
     nm = numero & m
     return bin(nm)[2:].zfill(tamanho)
 
-def bin_hex(bin_str):
+def binario_para_hex(bin_str):
     bin_str = bin_str.replace(" ", "")
     hex_2 = hex(int(bin_str, 2))[2:].upper()
     return hex_2.zfill(8)
 
 
-def gerar_arquivo_mif(nome_arquivo, conjunto_text, conjunto_data, instrucoes):
+def gerar_arquivo_mif(nome_arquivo, conjunto_texto, conjunto_dados, instrucoes):
 
-    depth_padrao = 1024 # para terminar em 3ff se usar o 32768 ai vai terminar em 7fff
+    profundidade_dados = 32768
+    profundidade_texto = 16384
+    maximo_enderecos_dados = 1024  
 
-    # ---------------- DATA ----------------
+    
     with open(f"{nome_arquivo}_data.mif", 'w') as f:
 
-        f.write(f"DEPTH = {depth_padrao};\n")
+        f.write(f"DEPTH = {profundidade_dados};\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
         f.write("CONTENT\n")
         f.write("BEGIN\n")
 
-        for i, valor_hex in enumerate(conjunto_data):
+        for i, valor_hex in enumerate(conjunto_dados):
             f.write(f"{i:08x} : {valor_hex.lower()};\n")
 
-        for addr in range(len(conjunto_data), depth_padrao):
+        for addr in range(len(conjunto_dados), maximo_enderecos_dados):
             f.write(f"{addr:08x} : 00000000;\n")
 
         f.write("END;\n")
 
-    # ---------------- TEXT ----------------
+    
     with open(f"{nome_arquivo}_text.mif", 'w') as f:
 
-        f.write(f"DEPTH = {depth_padrao};\n")
+        f.write(f"DEPTH = {profundidade_texto};\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
         f.write("CONTENT\n")
         f.write("BEGIN\n")
 
-        for i, valor_hex in enumerate(conjunto_text):
+        for i, valor_hex in enumerate(conjunto_texto):
 
             f.write(f"{i:08x} : {valor_hex.lower()};")
 
             if i < len(instrucoes):
                 f.write(f"    % {instrucoes[i]} %")
-
             f.write("\n")
 
-        """
-        for addr in range(len(conjunto_text), depth_padrao):
-            f.write(f"{addr:08x} : 00000000;\n")
-        """
-        
         f.write("END;\n")
+
         
 
 
-def converter_instrucao(instrucao, linha, pc, labels):
+def converter_instrucao(instrucao, linha, pc, rotulos):
     
     linha_limpa = linha.replace(",", " ").replace("(", " ").replace(")", " ")
 
@@ -126,8 +123,8 @@ def converter_instrucao(instrucao, linha, pc, labels):
     informacoes = INSTRUCOES[instrucao]
 
     def pega_numero(val):
-        if val in labels:
-            return labels[val]
+        if val in rotulos:
+            return rotulos[val]
         try:
             return int(val, 0)
         except:
@@ -163,7 +160,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
                 imm_val = pega_lo(partes_limpas[3])
             else:
                 imm_val = pega_numero(partes_limpas[3])
-            imm = int_bin(imm_val, 12)
+            imm = inteiro_para_binario(imm_val, 12)
             retorno = f"{imm} {rs1} {funct3} {rd} {opcode}"
 
         case "add" | "sub" | "and" | "or" | "xor" | "slt" | "sll" | "srl":
@@ -193,12 +190,12 @@ def converter_instrucao(instrucao, linha, pc, labels):
             funct3 = informacoes["funct3"]
             salto  = partes_limpas[3]
 
-            if salto in labels:
-                alvo = labels[salto] - pc
+            if salto in rotulos:
+                alvo = rotulos[salto] - pc
             else:
                 alvo = pega_numero(salto)
 
-            imm = int_bin(alvo, 13) 
+            imm = inteiro_para_binario(alvo, 13) 
             imm_12   = imm[0]
             imm_10_5 = imm[1:7]
             imm_4_1  = imm[7:11]
@@ -211,7 +208,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
             rs1 = REGISTRADORES[partes_limpas[3]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
-            imm = int_bin(imm_val, 12)
+            imm = inteiro_para_binario(imm_val, 12)
             imm_11_5 = imm[0:7]
             imm_4_0  = imm[7:12]
             retorno = f"{imm_11_5} {rs2} {rs1} {funct3} {imm_4_0} {opcode}"
@@ -224,7 +221,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
                 rs1 = REGISTRADORES[partes_limpas[2]]
             else:
                 rd  = REGISTRADORES[partes_limpas[1]]
-                imm = int_bin(pega_numero(partes_limpas[2]), 12)
+                imm = inteiro_para_binario(pega_numero(partes_limpas[2]), 12)
                 rs1 = REGISTRADORES[partes_limpas[3]]
             opcode = informacoes["opcode"]
             funct3 = informacoes["funct3"]
@@ -237,7 +234,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
                 imm_val = pega_hi(partes_limpas[2])
             else:
                 imm_val = pega_numero(partes_limpas[2])
-            imm = int_bin(imm_val, 20)
+            imm = inteiro_para_binario(imm_val, 20)
             retorno = f"{imm} {rd} {opcode}"
 
         case "jal":
@@ -250,12 +247,12 @@ def converter_instrucao(instrucao, linha, pc, labels):
 
             opcode = informacoes["opcode"]
 
-            if salto in labels:
-                alvo = labels[salto] - pc
+            if salto in rotulos:
+                alvo = rotulos[salto] - pc
             else:
                 alvo = pega_numero(salto)
 
-            imm = int_bin(alvo, 21)  
+            imm = inteiro_para_binario(alvo, 21)  
             imm_20   = imm[0]
             imm_1912 = imm[1:9]
             imm_11   = imm[9]
@@ -265,7 +262,7 @@ def converter_instrucao(instrucao, linha, pc, labels):
         case _:
             return f"Instrucao {instrucao} nao implementada."
 
-    return bin_hex(retorno)
+    return binario_para_hex(retorno)
 
 
 def main():
@@ -276,9 +273,9 @@ def main():
         linhas = file.readlines()
 
    
-    labels = {}
-    contador_pc   = TEXT_BASE   
-    contador_data = DATA_BASE   
+    rotulos = {}
+    contador_pc   = BASE_TEXTO   
+    contador_dados = BASE_DADOS   
     campo = ".text"
 
     for linha in linhas:
@@ -297,15 +294,15 @@ def main():
 
         if ":" in linha_limpa:
             partes = linha_limpa.split(':', 1)
-            nome_label = partes[0].strip()
+            nome_rotulo = partes[0].strip()
 
             if campo == ".text":
-                labels[nome_label] = contador_pc
+                rotulos[nome_rotulo] = contador_pc
                 instrucao_com_label = partes[1].strip()
                 if instrucao_com_label:
                     contador_pc += 4
             elif campo == ".data":
-                labels[nome_label] = contador_data
+                rotulos[nome_rotulo] = contador_dados
                 instrucao_com_label = partes[1].strip()
                 if instrucao_com_label:
                     linha_limpa = instrucao_com_label
@@ -318,21 +315,21 @@ def main():
         if campo == ".data":
             if linha_limpa.startswith(".word"):
                 valores = linha_limpa.replace(".word", "").replace(",", " ").split()
-                contador_data += 4 * len(valores)
+                contador_dados += 4 * len(valores)
             elif linha_limpa.startswith(".asciz") or linha_limpa.startswith(".string"):
                 inicio = linha_sem_comentario.find('"')
                 fim    = linha_sem_comentario.rfind('"')
                 if inicio != -1 and fim != -1:
-                    string_val = linha_sem_comentario[inicio+1:fim]
-                    chars = len(string_val) + 1
-                    resto = chars % 4
-                    chars += (4 - resto) if resto != 0 else 0
-                    contador_data += chars
+                    valor_string = linha_sem_comentario[inicio+1:fim]
+                    caracteres = len(valor_string) + 1
+                    resto = caracteres % 4
+                    caracteres += (4 - resto) if resto != 0 else 0
+                    contador_dados += caracteres
 
 
-    contador_pc = TEXT_BASE  
-    lista_data  = []
-    lista_text  = []
+    contador_pc = BASE_TEXTO  
+    lista_dados  = []
+    lista_texto  = []
     conjunto_instrucoes = []
     campo = ".text"
 
@@ -360,29 +357,29 @@ def main():
             if nova_linha.startswith(".word"):
                 valores = nova_linha.replace(".word", "").replace(",", " ").split()
                 for val in valores:
-                    lista_data.append(bin_hex(int_bin(int(val, 0), 32)))
+                    lista_dados.append(binario_para_hex(inteiro_para_binario(int(val, 0), 32)))
 
             elif nova_linha.startswith(".asciz") or nova_linha.startswith(".string"):
                 inicio = linha_sem_comentario.find('"')
                 fim    = linha_sem_comentario.rfind('"')
                 if inicio != -1 and fim != -1:
-                    string_val = linha_sem_comentario[inicio+1:fim]
-                    chars = [ord(c) for c in string_val] + [0]
-                    while len(chars) % 4 != 0:
-                        chars.append(0)
-                    for i in range(0, len(chars), 4):
-                        word_val = (chars[i+3] << 24) | (chars[i+2] << 16) | (chars[i+1] << 8) | chars[i]
-                        lista_data.append(bin_hex(int_bin(word_val, 32)))
+                    valor_string = linha_sem_comentario[inicio+1:fim]
+                    caracteres = [ord(c) for c in valor_string] + [0]
+                    while len(caracteres) % 4 != 0:
+                        caracteres.append(0)
+                    for i in range(0, len(caracteres), 4):
+                        word_val = (caracteres[i+3] << 24) | (caracteres[i+2] << 16) | (caracteres[i+1] << 8) | caracteres[i]
+                        lista_dados.append(binario_para_hex(inteiro_para_binario(word_val, 32)))
 
         elif campo == ".text":
             instrucao_linha = nova_linha.replace(",", " ").split()[0]
-            resultado_hex   = converter_instrucao(instrucao_linha, nova_linha, contador_pc, labels)
-            lista_text.append(resultado_hex)
+            resultado_hex = converter_instrucao(instrucao_linha, nova_linha, contador_pc, rotulos)
+            lista_texto.append(resultado_hex)
             conjunto_instrucoes.append(nova_linha)
             contador_pc += 4
 
     arquivo_nome = input("Nome do arquivo final (sem o .mif): ").strip()
-    gerar_arquivo_mif(arquivo_nome, lista_text, lista_data, conjunto_instrucoes)
+    gerar_arquivo_mif(arquivo_nome, lista_texto, lista_dados, conjunto_instrucoes)
     print(f"Arquivos {arquivo_nome}_data.mif e {arquivo_nome}_text.mif criados com sucesso!")
 
 
