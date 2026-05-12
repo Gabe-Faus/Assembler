@@ -9,378 +9,532 @@ INSTRUCOES = {
     "slt":   {"tipo": "R", "opcode": "0110011", "funct3": "010", "funct7": "0000000"},
     "sll":   {"tipo": "R", "opcode": "0110011", "funct3": "001", "funct7": "0000000"},
     "srl":   {"tipo": "R", "opcode": "0110011", "funct3": "101", "funct7": "0000000"},
+
     "slli":  {"tipo": "IS", "opcode": "0010011", "funct3": "001", "funct7": "0000000"},
     "srli":  {"tipo": "IS", "opcode": "0010011", "funct3": "101", "funct7": "0000000"},
     "srai":  {"tipo": "IS", "opcode": "0010011", "funct3": "101", "funct7": "0100000"},
+
     "addi":  {"tipo": "I", "opcode": "0010011", "funct3": "000"},
     "andi":  {"tipo": "I", "opcode": "0010011", "funct3": "111"},
     "ori":   {"tipo": "I", "opcode": "0010011", "funct3": "110"},
     "xori":  {"tipo": "I", "opcode": "0010011", "funct3": "100"},
     "slti":  {"tipo": "I", "opcode": "0010011", "funct3": "010"},
+
     "lw":    {"tipo": "I", "opcode": "0000011", "funct3": "010"},
     "lhu":   {"tipo": "I", "opcode": "0000011", "funct3": "101"},
     "jalr":  {"tipo": "I", "opcode": "1100111", "funct3": "000"},
+
     "sw":    {"tipo": "S", "opcode": "0100011", "funct3": "010"},
+
     "beq":   {"tipo": "B", "opcode": "1100011", "funct3": "000"},
     "bne":   {"tipo": "B", "opcode": "1100011", "funct3": "001"},
+
     "lui":   {"tipo": "U", "opcode": "0110111"},
     "auipc": {"tipo": "U", "opcode": "0010111"},
+
     "jal":   {"tipo": "J", "opcode": "1101111"},
 }
 
 REGISTRADORES = {
     **{f"x{i}": format(i, "05b") for i in range(32)},
+
     "zero": "00000",
     "ra":   "00001",
     "sp":   "00010",
     "gp":   "00011",
     "tp":   "00100",
-    "t0": "00101", "t1": "00110", "t2": "00111",
-    "s0": "01000", "fp": "01000", "s1": "01001",
-    "a0": "01010", "a1": "01011", "a2": "01100", "a3": "01101",
-    "a4": "01110", "a5": "01111", "a6": "10000", "a7": "10001",
-    "s2": "10010", "s3": "10011", "s4": "10100", "s5": "10101",
-    "s6": "10110", "s7": "10111", "s8": "11000", "s9": "11001",
-    "s10": "11010", "s11": "11011",
-    "t3": "11100", "t4": "11101", "t5": "11110", "t6": "11111",
+
+    "t0": "00101",
+    "t1": "00110",
+    "t2": "00111",
+
+    "s0": "01000",
+    "fp": "01000",
+    "s1": "01001",
+
+    "a0": "01010",
+    "a1": "01011",
+    "a2": "01100",
+    "a3": "01101",
+    "a4": "01110",
+    "a5": "01111",
+    "a6": "10000",
+    "a7": "10001",
+
+    "s2": "10010",
+    "s3": "10011",
+    "s4": "10100",
+    "s5": "10101",
+    "s6": "10110",
+    "s7": "10111",
+    "s8": "11000",
+    "s9": "11001",
+    "s10": "11010",
+    "s11": "11011",
+
+    "t3": "11100",
+    "t4": "11101",
+    "t5": "11110",
+    "t6": "11111",
 }
 
+BASE_TEXTO = 0x00400000
+BASE_DADOS = 0x10010000
 
-BASE_TEXTO = 0x00400000  
-BASE_DADOS = 0x10010000   
 
-def inteiro_para_binario(numero, tamanho=12):
-    m = (1 << tamanho) - 1
-    nm = numero & m
-    return bin(nm)[2:].zfill(tamanho)
+def inteiro_para_binario(numero, tamanho):
+    mascara = (1 << tamanho) - 1
+    return format(numero & mascara, f"0{tamanho}b")
+
 
 def binario_para_hex(bin_str):
     bin_str = bin_str.replace(" ", "")
-    hex_2 = hex(int(bin_str, 2))[2:].upper()
-    return hex_2.zfill(8)
+    return hex(int(bin_str, 2))[2:].upper().zfill(8)
 
 
 def gerar_arquivo_mif(nome_arquivo, conjunto_texto, conjunto_dados, instrucoes):
 
-    profundidade_dados = 32768
-    profundidade_texto = 16384
-    maximo_enderecos_dados = 1024  
+    with open(f"{nome_arquivo}_data.mif", "w") as f:
 
-    
-    with open(f"{nome_arquivo}_data.mif", 'w') as f:
-
-        f.write(f"DEPTH = {profundidade_dados};\n")
+        f.write("DEPTH = 32768;\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
         f.write("CONTENT\n")
         f.write("BEGIN\n")
 
-        for i, valor_hex in enumerate(conjunto_dados):
-            f.write(f"{i:08x} : {valor_hex.lower()};\n")
+        for i, valor in enumerate(conjunto_dados):
+            f.write(f"{i:08x} : {valor.lower()};\n")
 
-        for addr in range(len(conjunto_dados), maximo_enderecos_dados):
-            f.write(f"{addr:08x} : 00000000;\n")
+        for i in range(len(conjunto_dados), 1024):
+            f.write(f"{i:08x} : 00000000;\n")
 
         f.write("END;\n")
 
-    
-    with open(f"{nome_arquivo}_text.mif", 'w') as f:
+    with open(f"{nome_arquivo}_text.mif", "w") as f:
 
-        f.write(f"DEPTH = {profundidade_texto};\n")
+        f.write("DEPTH = 16384;\n")
         f.write("WIDTH = 32;\n")
         f.write("ADDRESS_RADIX = HEX;\n")
         f.write("DATA_RADIX = HEX;\n")
         f.write("CONTENT\n")
         f.write("BEGIN\n")
 
-        for i, valor_hex in enumerate(conjunto_texto):
+        for i, valor in enumerate(conjunto_texto):
 
-            f.write(f"{i:08x} : {valor_hex.lower()};")
+            f.write(f"{i:08x} : {valor.lower()};")
 
             if i < len(instrucoes):
                 f.write(f"    % {instrucoes[i]} %")
+
             f.write("\n")
 
         f.write("END;\n")
 
-        
-
 
 def converter_instrucao(instrucao, linha, pc, rotulos):
-    
-    linha_limpa = linha.replace(",", " ").replace("(", " ").replace(")", " ")
 
-    tem_hi = "%hi" in linha_limpa
-    tem_lo = "%lo" in linha_limpa
-    linha_limpa = linha_limpa.replace("%hi", "").replace("%lo", "")
+    linha = linha.replace(",", " ")
+    linha = linha.replace("(", " ")
+    linha = linha.replace(")", " ")
 
-    partes_limpas = linha_limpa.split()
+    tem_hi = "%hi" in linha
+    tem_lo = "%lo" in linha
+
+    linha = linha.replace("%hi", "")
+    linha = linha.replace("%lo", "")
+
+    partes = linha.split()
 
     if instrucao not in INSTRUCOES:
-        return "Opcode desconhecido ou instrucao inexistente"
+        return "INSTRUCAO_INVALIDA"
 
-    informacoes = INSTRUCOES[instrucao]
+    info = INSTRUCOES[instrucao]
 
-    def pega_numero(val):
-        if val in rotulos:
-            return rotulos[val]
+    def pega_numero(valor):
+
+        if valor in rotulos:
+            return rotulos[valor]
+
         try:
-            return int(val, 0)
+            return int(valor, 0)
         except:
             return 0
 
-    def pega_hi(val):
+    def pega_hi(valor):
 
-        addr = pega_numero(val)
-        lo = addr & 0xFFF
-        hi = addr >> 12
-  
+        endereco = pega_numero(valor)
+
+        lo = endereco & 0xFFF
+        hi = endereco >> 12
+
         if lo >= 0x800:
             hi += 1
+
         return hi
 
-    def pega_lo(val):
-       
-        addr = pega_numero(val)
-        lo = addr & 0xFFF
+    def pega_lo(valor):
+
+        endereco = pega_numero(valor)
+
+        lo = endereco & 0xFFF
+
         if lo >= 0x800:
             lo -= 0x1000
+
         return lo
 
     match instrucao:
 
-        case "addi" | "andi" | "ori" | "xori" | "slti":
-            rs1 = REGISTRADORES[partes_limpas[2]]
-            rd  = REGISTRADORES[partes_limpas[1]]
-            opcode = informacoes["opcode"]
-            funct3 = informacoes["funct3"]
-            # CORREÇÃO: respeitar %lo se presente
-            if tem_lo:
-                imm_val = pega_lo(partes_limpas[3])
-            else:
-                imm_val = pega_numero(partes_limpas[3])
-            imm = inteiro_para_binario(imm_val, 12)
-            retorno = f"{imm} {rs1} {funct3} {rd} {opcode}"
-
         case "add" | "sub" | "and" | "or" | "xor" | "slt" | "sll" | "srl":
-            rs1 = REGISTRADORES[partes_limpas[2]]
-            rs2 = REGISTRADORES[partes_limpas[3]]
-            rd  = REGISTRADORES[partes_limpas[1]]
-            opcode = informacoes["opcode"]
-            funct3 = informacoes["funct3"]
-            funct7 = informacoes["funct7"]
+
+            rd = REGISTRADORES[partes[1]]
+            rs1 = REGISTRADORES[partes[2]]
+            rs2 = REGISTRADORES[partes[3]]
+
+            funct7 = info["funct7"]
+            funct3 = info["funct3"]
+            opcode = info["opcode"]
+
             retorno = f"{funct7} {rs2} {rs1} {funct3} {rd} {opcode}"
 
-      
-        case "slli" | "srli" | "srai":
-            rd     = REGISTRADORES[partes_limpas[1]]
-            rs1    = REGISTRADORES[partes_limpas[2]]
-            shamt  = int(partes_limpas[3], 0) & 0x1F  # 5 bits
-            opcode = informacoes["opcode"]
-            funct3 = informacoes["funct3"]
-            funct7 = informacoes["funct7"]
-            shamt_bin = format(shamt, "05b")
-            retorno = f"{funct7} {shamt_bin} {rs1} {funct3} {rd} {opcode}"
+        case "addi" | "andi" | "ori" | "xori" | "slti":
 
-        case "beq" | "bne":
-            rs1 = REGISTRADORES[partes_limpas[1]]
-            rs2 = REGISTRADORES[partes_limpas[2]]
-            opcode = informacoes["opcode"]
-            funct3 = informacoes["funct3"]
-            salto  = partes_limpas[3]
+            rd = REGISTRADORES[partes[1]]
+            rs1 = REGISTRADORES[partes[2]]
 
-            if salto in rotulos:
-                alvo = rotulos[salto] - pc
+            if tem_lo:
+                imediato = pega_lo(partes[3])
             else:
-                alvo = pega_numero(salto)
+                imediato = pega_numero(partes[3])
 
-            imm = inteiro_para_binario(alvo, 13) 
-            imm_12   = imm[0]
-            imm_10_5 = imm[1:7]
-            imm_4_1  = imm[7:11]
-            imm_11   = imm[11]
-            retorno  = f"{imm_12}{imm_10_5} {rs2} {rs1} {funct3} {imm_4_1}{imm_11} {opcode}"
+            imm = inteiro_para_binario(imediato, 12)
 
-        case "sw":
-            rs2 = REGISTRADORES[partes_limpas[1]]
-            imm_val = pega_numero(partes_limpas[2])
-            rs1 = REGISTRADORES[partes_limpas[3]]
-            opcode = informacoes["opcode"]
-            funct3 = informacoes["funct3"]
-            imm = inteiro_para_binario(imm_val, 12)
-            imm_11_5 = imm[0:7]
-            imm_4_0  = imm[7:12]
-            retorno = f"{imm_11_5} {rs2} {rs1} {funct3} {imm_4_0} {opcode}"
+            funct3 = info["funct3"]
+            opcode = info["opcode"]
 
-        case "lw" | "lhu" | "jalr":
-            if instrucao == "jalr" and len(partes_limpas) == 3:
-                # jalr rd, rs  (sem offset)
-                rd  = REGISTRADORES[partes_limpas[1]]
-                imm = "000000000000"
-                rs1 = REGISTRADORES[partes_limpas[2]]
-            else:
-                rd  = REGISTRADORES[partes_limpas[1]]
-                imm = inteiro_para_binario(pega_numero(partes_limpas[2]), 12)
-                rs1 = REGISTRADORES[partes_limpas[3]]
-            opcode = informacoes["opcode"]
-            funct3 = informacoes["funct3"]
             retorno = f"{imm} {rs1} {funct3} {rd} {opcode}"
 
-        case "lui" | "auipc":
-            rd     = REGISTRADORES[partes_limpas[1]]
-            opcode = informacoes["opcode"]
-            if tem_hi:
-                imm_val = pega_hi(partes_limpas[2])
+        case "slli" | "srli" | "srai":
+
+            rd = REGISTRADORES[partes[1]]
+            rs1 = REGISTRADORES[partes[2]]
+
+            shamt = int(partes[3], 0) & 0x1F
+
+            funct7 = info["funct7"]
+            funct3 = info["funct3"]
+            opcode = info["opcode"]
+
+            shamt_bin = format(shamt, "05b")
+
+            retorno = f"{funct7} {shamt_bin} {rs1} {funct3} {rd} {opcode}"
+
+        case "lw" | "lhu" | "jalr":
+
+            opcode = info["opcode"]
+            funct3 = info["funct3"]
+
+            if instrucao == "jalr" and len(partes) == 3:
+
+                rd = REGISTRADORES[partes[1]]
+                rs1 = REGISTRADORES[partes[2]]
+                imm = "000000000000"
+
             else:
-                imm_val = pega_numero(partes_limpas[2])
-            imm = inteiro_para_binario(imm_val, 20)
+
+                rd = REGISTRADORES[partes[1]]
+                rs1 = REGISTRADORES[partes[3]]
+
+                imediato = pega_numero(partes[2])
+
+                imm = inteiro_para_binario(imediato, 12)
+
+            retorno = f"{imm} {rs1} {funct3} {rd} {opcode}"
+
+        case "sw":
+
+            rs2 = REGISTRADORES[partes[1]]
+            rs1 = REGISTRADORES[partes[3]]
+
+            imediato = pega_numero(partes[2])
+
+            imm = inteiro_para_binario(imediato, 12)
+
+            imm_11_5 = imm[0:7]
+            imm_4_0 = imm[7:12]
+
+            funct3 = info["funct3"]
+            opcode = info["opcode"]
+
+            retorno = f"{imm_11_5} {rs2} {rs1} {funct3} {imm_4_0} {opcode}"
+
+        case "beq" | "bne":
+
+            rs1 = REGISTRADORES[partes[1]]
+            rs2 = REGISTRADORES[partes[2]]
+
+            destino = partes[3]
+
+            if destino in rotulos:
+                offset = rotulos[destino] - pc
+            else:
+                offset = pega_numero(destino)
+
+            imm = inteiro_para_binario(offset, 13)
+
+            imm_12 = imm[0]
+            imm_10_5 = imm[2:8]
+            imm_4_1 = imm[8:12]
+            imm_11 = imm[1]
+
+            funct3 = info["funct3"]
+            opcode = info["opcode"]
+
+            retorno = f"{imm_12}{imm_10_5} {rs2} {rs1} {funct3} {imm_4_1}{imm_11} {opcode}"
+
+        case "lui" | "auipc":
+
+            rd = REGISTRADORES[partes[1]]
+
+            if tem_hi:
+                imediato = pega_hi(partes[2])
+            else:
+                imediato = pega_numero(partes[2])
+
+            imm = inteiro_para_binario(imediato, 20)
+
+            opcode = info["opcode"]
+
             retorno = f"{imm} {rd} {opcode}"
 
         case "jal":
-            if len(partes_limpas) == 2:
-                rd    = REGISTRADORES["ra"]
-                salto = partes_limpas[1]
+
+            opcode = info["opcode"]
+
+            if len(partes) == 2:
+                rd = REGISTRADORES["ra"]
+                destino = partes[1]
             else:
-                rd    = REGISTRADORES[partes_limpas[1]]
-                salto = partes_limpas[2]
+                rd = REGISTRADORES[partes[1]]
+                destino = partes[2]
 
-            opcode = informacoes["opcode"]
-
-            if salto in rotulos:
-                alvo = rotulos[salto] - pc
+            if destino in rotulos:
+                offset = rotulos[destino] - pc
             else:
-                alvo = pega_numero(salto)
+                offset = pega_numero(destino)
 
-            imm = inteiro_para_binario(alvo, 21)  
-            imm_20   = imm[0]
-            imm_1912 = imm[1:9]
-            imm_11   = imm[9]
-            imm_101  = imm[10:20]
-            retorno  = f"{imm_20}{imm_1912}{imm_11}{imm_101} {rd} {opcode}"
+            imm = inteiro_para_binario(offset, 21)
+
+            imm_20 = imm[0]
+            imm_10_1 = imm[10:20]
+            imm_11 = imm[9]
+            imm_19_12 = imm[1:9]
+
+            retorno = f"{imm_20}{imm_10_1}{imm_11}{imm_19_12} {rd} {opcode}"
 
         case _:
-            return f"Instrucao {instrucao} nao implementada."
+            return "INSTRUCAO_NAO_IMPLEMENTADA"
 
     return binario_para_hex(retorno)
 
 
 def main():
+
     nome_arquivo = input("Arquivo .asm: ").strip()
-    arquivo = Path.cwd() / nome_arquivo
 
-    with open(arquivo, 'r') as file:
-        linhas = file.readlines()
+    caminho = Path.cwd() / nome_arquivo
 
-   
+    with open(caminho, "r") as f:
+        linhas = f.readlines()
+
     rotulos = {}
-    contador_pc   = BASE_TEXTO   
-    contador_dados = BASE_DADOS   
-    campo = ".text"
+
+    pc = BASE_TEXTO
+    dados = BASE_DADOS
+
+    secao = ".text"
 
     for linha in linhas:
-        linha_sem_comentario = linha.split('#')[0]
+
+        linha_sem_comentario = linha.split("#")[0]
         linha_limpa = linha_sem_comentario.strip()
 
         if not linha_limpa:
             continue
 
         if linha_limpa == ".data":
-            campo = ".data"
+            secao = ".data"
             continue
-        elif linha_limpa == ".text":
-            campo = ".text"
+
+        if linha_limpa == ".text":
+            secao = ".text"
             continue
 
         if ":" in linha_limpa:
-            partes = linha_limpa.split(':', 1)
+
+            partes = linha_limpa.split(":", 1)
+
             nome_rotulo = partes[0].strip()
 
-            if campo == ".text":
-                rotulos[nome_rotulo] = contador_pc
-                instrucao_com_label = partes[1].strip()
-                if instrucao_com_label:
-                    contador_pc += 4
-            elif campo == ".data":
-                rotulos[nome_rotulo] = contador_dados
-                instrucao_com_label = partes[1].strip()
-                if instrucao_com_label:
-                    linha_limpa = instrucao_com_label
+            if secao == ".text":
+
+                rotulos[nome_rotulo] = pc
+
+                resto = partes[1].strip()
+
+                if resto:
+                    pc += 4
+
+            else:
+
+                rotulos[nome_rotulo] = dados
+
+                resto = partes[1].strip()
+
+                if resto:
+                    linha_limpa = resto
                 else:
                     continue
+
         else:
-            if campo == ".text":
-                contador_pc += 4
 
-        if campo == ".data":
+            if secao == ".text":
+                pc += 4
+
+        if secao == ".data":
+
             if linha_limpa.startswith(".word"):
-                valores = linha_limpa.replace(".word", "").replace(",", " ").split()
-                contador_dados += 4 * len(valores)
+
+                valores = linha_limpa.replace(".word", "")
+                valores = valores.replace(",", " ").split()
+
+                dados += 4 * len(valores)
+
             elif linha_limpa.startswith(".asciz") or linha_limpa.startswith(".string"):
+
                 inicio = linha_sem_comentario.find('"')
-                fim    = linha_sem_comentario.rfind('"')
+                fim = linha_sem_comentario.rfind('"')
+
                 if inicio != -1 and fim != -1:
-                    valor_string = linha_sem_comentario[inicio+1:fim]
-                    caracteres = len(valor_string) + 1
-                    resto = caracteres % 4
-                    caracteres += (4 - resto) if resto != 0 else 0
-                    contador_dados += caracteres
 
+                    string = linha_sem_comentario[inicio + 1:fim]
 
-    contador_pc = BASE_TEXTO  
-    lista_dados  = []
-    lista_texto  = []
-    conjunto_instrucoes = []
-    campo = ".text"
+                    tamanho = len(string) + 1
+
+                    while tamanho % 4 != 0:
+                        tamanho += 1
+
+                    dados += tamanho
+
+    pc = BASE_TEXTO
+
+    lista_texto = []
+    lista_dados = []
+    instrucoes = []
+
+    secao = ".text"
 
     for linha in linhas:
-        linha_sem_comentario = linha.split('#')[0]
-        nova_linha = linha_sem_comentario.strip()
 
-        if not nova_linha:
+        linha_sem_comentario = linha.split("#")[0]
+        linha_limpa = linha_sem_comentario.strip()
+
+        if not linha_limpa:
             continue
 
-        if nova_linha == ".data":
-            campo = ".data"
-            continue
-        elif nova_linha == ".text":
-            campo = ".text"
+        if linha_limpa == ".data":
+            secao = ".data"
             continue
 
-        if ":" in nova_linha:
-            partes = nova_linha.split(":", 1)
-            nova_linha = partes[1].strip()
-            if not nova_linha:
+        if linha_limpa == ".text":
+            secao = ".text"
+            continue
+
+        if ":" in linha_limpa:
+
+            partes = linha_limpa.split(":", 1)
+
+            linha_limpa = partes[1].strip()
+
+            if not linha_limpa:
                 continue
 
-        if campo == ".data":
-            if nova_linha.startswith(".word"):
-                valores = nova_linha.replace(".word", "").replace(",", " ").split()
-                for val in valores:
-                    lista_dados.append(binario_para_hex(inteiro_para_binario(int(val, 0), 32)))
+        if secao == ".data":
 
-            elif nova_linha.startswith(".asciz") or nova_linha.startswith(".string"):
+            if linha_limpa.startswith(".word"):
+
+                valores = linha_limpa.replace(".word", "")
+                valores = valores.replace(",", " ").split()
+
+                for valor in valores:
+
+                    inteiro = int(valor, 0)
+
+                    lista_dados.append(
+                        binario_para_hex(
+                            inteiro_para_binario(inteiro, 32)
+                        )
+                    )
+
+            elif linha_limpa.startswith(".asciz") or linha_limpa.startswith(".string"):
+
                 inicio = linha_sem_comentario.find('"')
-                fim    = linha_sem_comentario.rfind('"')
+                fim = linha_sem_comentario.rfind('"')
+
                 if inicio != -1 and fim != -1:
-                    valor_string = linha_sem_comentario[inicio+1:fim]
-                    caracteres = [ord(c) for c in valor_string] + [0]
-                    while len(caracteres) % 4 != 0:
-                        caracteres.append(0)
-                    for i in range(0, len(caracteres), 4):
-                        word_val = (caracteres[i+3] << 24) | (caracteres[i+2] << 16) | (caracteres[i+1] << 8) | caracteres[i]
-                        lista_dados.append(binario_para_hex(inteiro_para_binario(word_val, 32)))
 
-        elif campo == ".text":
-            instrucao_linha = nova_linha.replace(",", " ").split()[0]
-            resultado_hex = converter_instrucao(instrucao_linha, nova_linha, contador_pc, rotulos)
-            lista_texto.append(resultado_hex)
-            conjunto_instrucoes.append(nova_linha)
-            contador_pc += 4
+                    string = linha_sem_comentario[inicio + 1:fim]
 
-    arquivo_nome = input("Nome do arquivo final (sem o .mif): ").strip()
-    gerar_arquivo_mif(arquivo_nome, lista_texto, lista_dados, conjunto_instrucoes)
-    print(f"Arquivos {arquivo_nome}_data.mif e {arquivo_nome}_text.mif criados com sucesso!")
+                    chars = [ord(c) for c in string] + [0]
+
+                    while len(chars) % 4 != 0:
+                        chars.append(0)
+
+                    for i in range(0, len(chars), 4):
+
+                        word = (
+                            (chars[i + 3] << 24)
+                            | (chars[i + 2] << 16)
+                            | (chars[i + 1] << 8)
+                            | chars[i]
+                        )
+
+                        lista_dados.append(
+                            binario_para_hex(
+                                inteiro_para_binario(word, 32)
+                            )
+                        )
+
+        elif secao == ".text":
+
+            instrucao = linha_limpa.replace(",", " ").split()[0]
+
+            hex_instrucao = converter_instrucao(
+                instrucao,
+                linha_limpa,
+                pc,
+                rotulos
+            )
+
+            lista_texto.append(hex_instrucao)
+            instrucoes.append(linha_limpa)
+
+            pc += 4
+
+    nome_saida = input("Nome do arquivo final: ").strip()
+
+    gerar_arquivo_mif(
+        nome_saida,
+        lista_texto,
+        lista_dados,
+        instrucoes
+    )
+
+    print(
+        f"Arquivos {nome_saida}_data.mif e "
+        f"{nome_saida}_text.mif criados com sucesso!"
+    )
 
 
 if __name__ == "__main__":
